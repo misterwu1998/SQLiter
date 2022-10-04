@@ -1,6 +1,7 @@
 #include "SQLiter.hpp"
 #include <stdlib.h>
 #include <iostream>
+#include <random>
 
 int main(int argc, char const *argv[])
 {
@@ -55,13 +56,25 @@ int main(int argc, char const *argv[])
     return 0;
 
   }
+  
+  SQLiter::Connection c("./test.db");
 
-  SQLiter::SQLiteConnection c("test.db");
-  if(!c){
-    exit(-1);
+  SQLiter::Statement s0(c, "CREATE TABLE IF NOT EXISTS student(id INTEGER, name TEXT);");
+  s0.step();
+
+  SQLiter::Statement s1(c, "INSERT INTO student(id,name) VALUES(?,'John');");
+  int32_t id;
+  id = std::rand() % (1<<10);
+  s1.bind(1,id);
+  s1.step();
+
+  SQLiter::Statement s2(c, "SELECT id,name FROM student WHERE id < ?;");
+  s2.bind(1,512);
+  const unsigned char* result;
+  while(s2.step()==SQLITE_ROW){
+    s2.getResultFromCurrentRow(0,id);
+    s2.getResultFromCurrentRow(1,result);
+    std::cout << id << ": " << result << '\n';
   }
-  std::string sentence("select name from student where id < ?;");
-  int ret = c.prepareStatement(sentence);
-  ret = c.bind(sentence,1, (int32_t)200);
 
 }

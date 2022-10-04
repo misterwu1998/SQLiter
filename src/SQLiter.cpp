@@ -1,115 +1,119 @@
-#include <iostream>
+#include "sqlite3.h"
 #include "SQLiter.hpp"
-
-#define CHECK_STATEMENT_BEFORE_BIND     \
-  if(pDb==NULL){                        \
-    return -1;                          \
-  }                                     \
-  auto it = statements.find(sentence);  \
-  if(statements.end()==it){             \
-    return -1;                          \
-  }                                     \
 
 namespace SQLiter
 {
-  SQLiteConnection::SQLiteConnection(
+  Connection::Connection(
       std::string const& dbFilePath
-    , int32_t flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_NOMUTEX | SQLITE_OPEN_SHAREDCACHE){
-    if(SQLITE_OK != sqlite3_open_v2(dbFilePath.c_str(), &pDb, flags, NULL)){
-      pDb = NULL;
+    , int32_t flags){
+    if(SQLITE_OK != sqlite3_open_v2(dbFilePath.c_str(), &db, flags, NULL)){
+      db = NULL;
+    }
+  }
+  
+  Connection::Connection(Connection&& c){
+    db = c.db;
+    c.db = NULL;
+  }
+
+  bool Connection::isOpen() const{
+    return db!=NULL;
+  }
+
+  Connection::~Connection(){
+    if(db!=NULL){
+      sqlite3_close_v2(db);
     }
   }
 
-  SQLiteConnection::operator bool(){
-    return pDb!=NULL;
+  Statement::Statement(Connection const& c, std::string const& sentence){
+    if(SQLITE_OK != sqlite3_prepare_v2(c.db, sentence.c_str(), sentence.length(), &stm, NULL)){
+      stm = NULL;
+    }
+    resultCodeNow = 0;
   }
 
-  int SQLiteConnection::prepareStatement(std::string const& sentence){
-    if(pDb==NULL){
+  Statement::Statement(Statement&& s){
+    stm = s.stm;
+    s.stm = NULL;
+    resultCodeNow = 0;
+  }
+
+  bool Statement::isPrepared() const{
+    return stm!=NULL;
+  }
+
+  int Statement::bind(int32_t index){
+    if(stm==NULL){
       return -1;
     }
-    sqlite3_stmt* pStm;
-    if(SQLITE_OK == sqlite3_prepare_v2(pDb, sentence.c_str(), sentence.size(), &pStm, NULL)){
-      auto it = statements.find(sentence);
-      if(statements.end()==it){//暂无这个statement
-        statements.insert({sentence,pStm});
-      }else{//已有这个statement
-        sqlite3_finalize(it->second);
-        it->second = pStm;
-      }
+    if(SQLITE_OK != sqlite3_bind_null(stm,index)){
+      return -1;
     }
     return 0;
   }
 
-  int SQLiteConnection::finalizeStatement(std::string const& sentence){
-    if(pDb==NULL){
+  int Statement::bind(int32_t index, int32_t value){
+    if(stm==NULL){
       return -1;
     }
-    auto it = statements.find(sentence);
-    if(statements.end()==it){
-      return 0;
-    }else{
-      sqlite3_finalize(it->second);
-      statements.erase(it);
-      return 1;
+    if(SQLITE_OK != sqlite3_bind_int(stm,index,value)){
+      return -1;
     }
+    return 0;
   }
 
-  int SQLiteConnection::bind(std::string const& sentence, int32_t index, const void* data, uint32_t size){
-    CHECK_STATEMENT_BEFORE_BIND
-    if(SQLITE_OK == sqlite3_bind_blob(it->second, index, data, size, NULL)){
-      return 0;
+  int Statement::bind(int32_t index, int64_t value){
+    if(stm==NULL){
+      return -1;
     }
-    return -2;
+    if(SQLITE_OK != sqlite3_bind_int64(stm,index,value)){
+      return -1;
+    }
+    return 0;
   }
 
-  int SQLiteConnection::bind(std::string const& sentence, int32_t index, double value){
-    CHECK_STATEMENT_BEFORE_BIND
-    if(SQLITE_OK == sqlite3_bind_double(it->second, index, value)){
-      return 0;
+  int Statement::bind(int32_t index, double value){
+    if(stm==NULL){
+      return -1;
     }
-    return -2;
+    if(SQLITE_OK != sqlite3_bind_double(stm,index,value)){
+      return -1;
+    }
+    return 0;
   }
 
-  int SQLiteConnection::bind(std::string const& sentence, int32_t index, int64_t value){
-    CHECK_STATEMENT_BEFORE_BIND
-    if(SQLITE_OK == sqlite3_bind_int64(it->second, index, value)){
-      return 0;
+  int Statement::bind(int32_t index, std::string const& text){
+    if(stm==NULL){
+      return -1;
     }
-    return -2;
+    if(SQLITE_OK != sqlite3_bind_text(stm,index, text.c_str(), text.size(), NULL)){
+      return -1;
+    }
+    return 0;
   }
 
-  int SQLiteConnection::bind(std::string const& sentence, int32_t index, int32_t value){
-    CHECK_STATEMENT_BEFORE_BIND
-    if(SQLITE_OK == sqlite3_bind_int(it->second, index, value)){
-      return 0;
+  int Statement::bind(int32_t index, const void* data, uint32_t size){
+    if(stm==NULL){
+      return -1;
     }
-    return -2;
+    if(SQLITE_OK != sqlite3_bind_blob(stm,index,data,size,NULL)){
+      return -1;
+    }
+    return 0;
+  }  
+
+  int Statement::step(){
+    this->resultCodeNow = sqlite3_step(stm);
+    return resultCodeNow;
   }
 
-  int SQLiteConnection::bind(std::string const& sentence, int32_t index){
-    CHECK_STATEMENT_BEFORE_BIND
-    if(SQLITE_OK == sqlite3_bind_null(it->second, index)){
-      return 0;
-    }
-    return -2;
+  bool Statement::rowLoaded() const{
+    return SQLITE_ROW == resultCodeNow;
   }
 
-  int SQLiteConnection::bind(std::string const& sentence, int32_t index, std::string const& text){
-    CHECK_STATEMENT_BEFORE_BIND
-    if(SQLITE_OK == sqlite3_bind_text(it->second, index, text.c_str(), text.length(), NULL)){
-      return 0;
-    }
-    return -2;
-  }
-
-  SQLiteConnection::~SQLiteConnection(){
-    for(auto& it : statements){
-      sqlite3_finalize(it.second);
-    }
-    if(pDb){
-      sqlite3_close_v2(pDb);
-    }
+  Statement::~Statement(){
+    sqlite3_finalize(stm);
   }
 
 } // namespace SQLiter

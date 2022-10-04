@@ -7,7 +7,7 @@ enable_testing()
 include_directories(/mnt/d/SQLite/usr/local/include/) # 原因：进入SQLite源码目录执行configure时，我指定了prefix=/mnt/d/SQLite/usr/local/
 include_directories(./include/)
 
-add_library(SQLiter ./src/SQLiter.cpp)
+add_library(SQLiter SHARED ./src/SQLiter.cpp)
 target_link_directories(SQLiter PUBLIC /mnt/d/SQLite/usr/local/lib/) # 原因：进入SQLite源码目录执行configure时，我指定了prefix=/mnt/d/SQLite/usr/local/
 target_link_libraries(SQLiter sqlite3)
 
