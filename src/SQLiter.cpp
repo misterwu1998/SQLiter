@@ -113,7 +113,7 @@ namespace SQLiter
   }
 
   Statement::~Statement(){
-    sqlite3_finalize(stm);
+    if(isPrepared())    sqlite3_finalize(stm);
   }
 
 } // namespace SQLiter
