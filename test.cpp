@@ -64,6 +64,9 @@ int main(int argc, char const *argv[])
 
   sqliter_Statement s1(c, "INSERT INTO student(id,name) VALUES(?,'John');");
   int32_t id;
+  std::cout << "Input a seed for rand(): ";
+  std::cin >> id;
+  std::srand(id);
   id = std::rand() % (1<<10);
   s1.bind(1,id);
   s1.step();
