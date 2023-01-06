@@ -57,18 +57,18 @@ int main(int argc, char const *argv[])
 
   }
   
-  SQLiter::Connection c("./test.db");
+  sqliter_Connection c("./test.db");
 
-  SQLiter::Statement s0(c, "CREATE TABLE IF NOT EXISTS student(id INTEGER, name TEXT);");
+  sqliter_Statement s0(c, "CREATE TABLE IF NOT EXISTS student(id INTEGER, name TEXT);");
   s0.step();
 
-  SQLiter::Statement s1(c, "INSERT INTO student(id,name) VALUES(?,'John');");
+  sqliter_Statement s1(c, "INSERT INTO student(id,name) VALUES(?,'John');");
   int32_t id;
   id = std::rand() % (1<<10);
   s1.bind(1,id);
   s1.step();
 
-  SQLiter::Statement s2(c, "SELECT id,name FROM student WHERE id < ?;");
+  sqliter_Statement s2(c, "SELECT id,name FROM student WHERE id < ?;");
   s2.bind(1,512);
   const unsigned char* result;
   while(s2.step()==SQLITE_ROW){
